@@ -29,5 +29,5 @@ The current repository preserves the original prototype under origin/ and establ
 
 ## Deployment
 - GitHub Pages deployment is handled by GitHub Actions using the repository base path /LogicMatrix/.<br/>**GitHub Pages 通过 GitHub Actions 自动部署，并已使用仓库子路径 /LogicMatrix/ 作为打包基座。**
-- After pushing to main, open the Pages site at https://onovich.github.io/LogicMatrix/.<br/>**推送到 main 后，可通过 https://onovich.github.io/LogicMatrix/ 访问线上页面。**
+- After pushing to main, open the repository Pages site from the GitHub Pages settings or the workflow summary; the default path is https://onovich.github.io/LogicMatrix/, but an account-level custom domain may override it.<br/>**推送到 main 后，请从 GitHub Pages 设置页或工作流摘要页打开仓库站点；默认路径是 https://onovich.github.io/LogicMatrix/，但账号级自定义域名可能会覆盖这个地址。**
 - In repository settings, set Pages Source to GitHub Actions if it is not already selected.<br/>**如果仓库设置里尚未切换，请将 Pages Source 设为 GitHub Actions。**
