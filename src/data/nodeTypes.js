@@ -16,7 +16,7 @@ export const NODE_TYPES = {
 
 export const INITIAL_UNLOCKED = ['Distance', 'Constant', 'LessThan', 'ActionAttack', 'ActionForward'];
 export const CONNECTION_COST = 5;
-export const NODE_WIDTH = 160;
-export const PORT_OFFSET_Y = 40;
-export const PORT_SPACING = 28;
+export const NODE_WIDTH = 144;
+export const PORT_OFFSET_Y = 36;
+export const PORT_SPACING = 24;
 export const ARENA_SIZE = 12;

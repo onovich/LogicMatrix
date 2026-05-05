@@ -14,6 +14,7 @@ export default function App() {
   const [nodes, setNodes] = useState([]);
   const [connections, setConnections] = useState([]);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
 
   const currentPoints =
     maxPoints -
@@ -95,6 +96,8 @@ export default function App() {
             currentPoints={currentPoints}
             pan={pan}
             setPan={setPan}
+            zoom={zoom}
+            setZoom={setZoom}
           />
         )}
         {gameState === 'battle' && (

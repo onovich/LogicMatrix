@@ -1,8 +1,30 @@
 import { Trash2 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CONNECTION_COST, NODE_TYPES, NODE_WIDTH } from '../../data/nodeTypes';
 import { createBezierPath, getPortPos } from '../../logic/engine/graph';
 import NodePalette from '../components/NodePalette';
+
+const MIN_ZOOM = 0.65;
+const MAX_ZOOM = 1.8;
+
+function clampZoom(value) {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
+}
+
+function getDistance(firstPoint, secondPoint) {
+  return Math.hypot(secondPoint.x - firstPoint.x, secondPoint.y - firstPoint.y);
+}
+
+function getMidpoint(firstPoint, secondPoint) {
+  return {
+    x: (firstPoint.x + secondPoint.x) / 2,
+    y: (firstPoint.y + secondPoint.y) / 2,
+  };
+}
+
+function getZoomFactor(deltaY) {
+  return Math.exp(-deltaY * 0.0015);
+}
 
 export default function BuildScreen({
   nodes,
@@ -13,9 +35,189 @@ export default function BuildScreen({
   currentPoints,
   pan,
   setPan,
+  zoom,
+  setZoom,
 }) {
   const containerRef = useRef(null);
+  const panRef = useRef(pan);
+  const zoomRef = useRef(zoom);
+  const activePointersRef = useRef(new Map());
+  const gestureRef = useRef(null);
   const [drawingLine, setDrawingLine] = useState(null);
+
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+
+    if (!container) {
+      return undefined;
+    }
+
+    const handleWheel = (event) => {
+      if (!containerRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const currentZoom = zoomRef.current;
+      const localPoint = getLocalPoint(event.clientX, event.clientY);
+      const worldPoint = {
+        x: (localPoint.x - panRef.current.x) / currentZoom,
+        y: (localPoint.y - panRef.current.y) / currentZoom,
+      };
+      const nextZoom = clampZoom(currentZoom * getZoomFactor(event.deltaY));
+
+      if (nextZoom === currentZoom) {
+        return;
+      }
+
+      const nextPan = {
+        x: localPoint.x - worldPoint.x * nextZoom,
+        y: localPoint.y - worldPoint.y * nextZoom,
+      };
+
+      setZoom(nextZoom);
+      setPan(nextPan);
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [setPan, setZoom]);
+
+  const getLocalPoint = (clientX, clientY) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+
+    if (!rect) {
+      return { x: 0, y: 0 };
+    }
+
+    return {
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    };
+  };
+
+  const getWorldPoint = (clientX, clientY, panValue = panRef.current, zoomValue = zoomRef.current) => {
+    const localPoint = getLocalPoint(clientX, clientY);
+
+    return {
+      x: (localPoint.x - panValue.x) / zoomValue,
+      y: (localPoint.y - panValue.y) / zoomValue,
+    };
+  };
+
+  const startPanGesture = (pointer) => {
+    gestureRef.current = {
+      type: 'pan',
+      pointerId: pointer.id,
+      startClient: { x: pointer.x, y: pointer.y },
+      startPan: panRef.current,
+    };
+  };
+
+  const startPinchGesture = () => {
+    const pointers = Array.from(activePointersRef.current.values());
+
+    if (pointers.length < 2) {
+      return;
+    }
+
+    const [firstPoint, secondPoint] = pointers;
+    const startMidpoint = getMidpoint(firstPoint, secondPoint);
+    const localMidpoint = getLocalPoint(startMidpoint.x, startMidpoint.y);
+
+    gestureRef.current = {
+      type: 'pinch',
+      startDistance: getDistance(firstPoint, secondPoint),
+      startZoom: zoomRef.current,
+      worldMidpoint: {
+        x: (localMidpoint.x - panRef.current.x) / zoomRef.current,
+        y: (localMidpoint.y - panRef.current.y) / zoomRef.current,
+      },
+    };
+  };
+
+  const handlePointerMoveBackground = (event) => {
+    const pointer = activePointersRef.current.get(event.pointerId);
+
+    if (!pointer) {
+      return;
+    }
+
+    activePointersRef.current.set(event.pointerId, {
+      ...pointer,
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    const gesture = gestureRef.current;
+
+    if (!gesture) {
+      return;
+    }
+
+    if (gesture.type === 'pan') {
+      const nextPointer = activePointersRef.current.get(gesture.pointerId);
+
+      if (!nextPointer) {
+        return;
+      }
+
+      setPan({
+        x: gesture.startPan.x + (nextPointer.x - gesture.startClient.x),
+        y: gesture.startPan.y + (nextPointer.y - gesture.startClient.y),
+      });
+      return;
+    }
+
+    if (gesture.type === 'pinch') {
+      const pointers = Array.from(activePointersRef.current.values());
+
+      if (pointers.length < 2) {
+        return;
+      }
+
+      const [firstPoint, secondPoint] = pointers;
+      const midpoint = getMidpoint(firstPoint, secondPoint);
+      const nextZoom = clampZoom(gesture.startZoom * (getDistance(firstPoint, secondPoint) / gesture.startDistance));
+      const localMidpoint = getLocalPoint(midpoint.x, midpoint.y);
+      const nextPan = {
+        x: localMidpoint.x - gesture.worldMidpoint.x * nextZoom,
+        y: localMidpoint.y - gesture.worldMidpoint.y * nextZoom,
+      };
+
+      setZoom(nextZoom);
+      setPan(nextPan);
+    }
+  };
+
+  const handlePointerEndBackground = (event) => {
+    activePointersRef.current.delete(event.pointerId);
+
+    if (activePointersRef.current.size >= 2) {
+      startPinchGesture();
+      return;
+    }
+
+    if (activePointersRef.current.size === 1) {
+      const [remainingPointer] = activePointersRef.current.values();
+      startPanGesture(remainingPointer);
+      return;
+    }
+
+    gestureRef.current = null;
+  };
 
   const handlePointerDownBackground = (event) => {
     const isMousePanTrigger = event.pointerType === 'mouse'
@@ -26,22 +228,29 @@ export default function BuildScreen({
       return;
     }
 
-    const startX = event.clientX - pan.x;
-    const startY = event.clientY - pan.y;
+    if (typeof event.currentTarget.setPointerCapture === 'function') {
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        // Synthetic or unsupported pointer streams may not allow capture.
+      }
+    }
+    activePointersRef.current.set(event.pointerId, {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    });
 
-    const onPointerMove = (moveEvent) => {
-      setPan({ x: moveEvent.clientX - startX, y: moveEvent.clientY - startY });
-    };
+    if (activePointersRef.current.size >= 2) {
+      startPinchGesture();
+      return;
+    }
 
-    const onPointerUp = () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
-    };
-
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerUp);
+    startPanGesture({
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    });
   };
 
   const addNode = (typeKey) => {
@@ -51,13 +260,17 @@ export default function BuildScreen({
       return;
     }
 
+    const rect = containerRef.current?.getBoundingClientRect();
+    const centerX = rect ? rect.width / 2 : window.innerWidth / 2;
+    const centerY = rect ? rect.height / 2 : window.innerHeight / 2;
+
     setNodes((previous) => [
       ...previous,
       {
         id: `node_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
         type: typeKey,
-        x: -pan.x + window.innerWidth / 2 - NODE_WIDTH / 2,
-        y: -pan.y + window.innerHeight / 2 - 100,
+        x: (centerX - panRef.current.x) / zoomRef.current - NODE_WIDTH / 2,
+        y: (centerY - panRef.current.y) / zoomRef.current - 100,
         value: 1,
       },
     ]);
@@ -71,13 +284,16 @@ export default function BuildScreen({
     event.stopPropagation();
 
     const node = nodes.find((item) => item.id === nodeId);
-    const offsetX = event.clientX - node.x;
-    const offsetY = event.clientY - node.y;
+    const pointerWorldPoint = getWorldPoint(event.clientX, event.clientY);
+    const offsetX = pointerWorldPoint.x - node.x;
+    const offsetY = pointerWorldPoint.y - node.y;
 
     const onPointerMove = (moveEvent) => {
+      const nextWorldPoint = getWorldPoint(moveEvent.clientX, moveEvent.clientY);
+
       setNodes((previous) =>
         previous.map((item) =>
-          item.id === nodeId ? { ...item, x: moveEvent.clientX - offsetX, y: moveEvent.clientY - offsetY } : item,
+          item.id === nodeId ? { ...item, x: nextWorldPoint.x - offsetX, y: nextWorldPoint.y - offsetY } : item,
         ),
       );
     };
@@ -122,11 +338,11 @@ export default function BuildScreen({
         return;
       }
 
-      const rect = containerRef.current.getBoundingClientRect();
+      const nextWorldPoint = getWorldPoint(moveEvent.clientX, moveEvent.clientY);
       setDrawingLine((previous) => ({
         ...previous,
-        currentX: moveEvent.clientX - rect.left - pan.x,
-        currentY: moveEvent.clientY - rect.top - pan.y,
+        currentX: nextWorldPoint.x,
+        currentY: nextWorldPoint.y,
       }));
     };
 
@@ -176,16 +392,23 @@ export default function BuildScreen({
       <div
         className="relative flex-1 overflow-hidden bg-slate-950"
         onPointerDown={handlePointerDownBackground}
+        onPointerMove={handlePointerMoveBackground}
+        onPointerUp={handlePointerEndBackground}
+        onPointerCancel={handlePointerEndBackground}
         onContextMenu={(event) => event.preventDefault()}
         ref={containerRef}
         style={{ touchAction: 'none' }}
       >
         <div
           className="pointer-events-none absolute inset-0 bg-grid-dots"
-          style={{ backgroundSize: '40px 40px', backgroundPosition: `${pan.x}px ${pan.y}px`, opacity: 0.3 }}
+          style={{
+            backgroundSize: `${40 * zoom}px ${40 * zoom}px`,
+            backgroundPosition: `${pan.x}px ${pan.y}px`,
+            opacity: 0.3,
+          }}
         />
 
-        <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
+        <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
           <svg className="absolute inset-0 z-0 h-full w-full overflow-visible pointer-events-none">
             {connections.map((connection) => {
               const fromNode = nodes.find((item) => item.id === connection.fromNode);
@@ -248,18 +471,19 @@ export default function BuildScreen({
                 className="absolute z-10 flex flex-col rounded-lg border border-slate-700 bg-slate-800 text-slate-200 shadow-2xl transition-shadow hover:shadow-indigo-500/20"
                 style={{ left: node.x, top: node.y, width: NODE_WIDTH }}
               >
-                <div className={`flex items-center justify-between rounded-t-lg px-3 py-2 shadow-inner ${definition.color}`}>
-                  <span className="truncate text-xs font-bold tracking-wide text-white drop-shadow-sm">{definition.name}</span>
+                <div className={`flex items-center justify-between rounded-t-lg px-2.5 py-1.5 shadow-inner ${definition.color}`}>
+                  <span className="truncate text-[11px] font-bold tracking-wide text-white drop-shadow-sm">{definition.name}</span>
                   <button
                     onClick={() => deleteNode(node.id)}
+                    onPointerDown={(event) => event.stopPropagation()}
                     className="rounded p-1 text-white/60 transition-colors hover:bg-white/20 hover:text-white"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
 
-                <div className="relative min-h-[40px] py-2">
-                  <div className="absolute bottom-0 left-0 top-2 flex flex-col gap-[14px]">
+                <div className="relative min-h-[36px] py-1.5">
+                  <div className="absolute bottom-0 left-0 top-1.5 flex flex-col gap-3">
                     {definition.inputs.map((inputName, index) => (
                       <div key={`in_${index}`} className="relative -ml-[6px] flex items-center" title={inputName}>
                         <div
@@ -273,7 +497,7 @@ export default function BuildScreen({
                   </div>
 
                   {definition.hasInput && (
-                    <div className="flex justify-center px-4">
+                    <div className="flex justify-center px-3">
                       <input
                         type="number"
                         value={node.value}
@@ -284,13 +508,13 @@ export default function BuildScreen({
                             ),
                           )
                         }
-                        className="w-20 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-center font-mono text-xs text-emerald-400 focus:border-indigo-500 focus:outline-none"
+                        className="w-16 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-center font-mono text-xs text-emerald-400 focus:border-indigo-500 focus:outline-none"
                         onPointerDown={(event) => event.stopPropagation()}
                       />
                     </div>
                   )}
 
-                  <div className="absolute bottom-0 right-0 top-2 flex flex-col items-end gap-[14px]">
+                  <div className="absolute bottom-0 right-0 top-1.5 flex flex-col items-end gap-3">
                     {definition.outputs.map((outputName, index) => (
                       <div key={`out_${index}`} className="relative -mr-[6px] flex items-center" title={outputName}>
                         <span className="mr-1 scale-90 font-mono text-[10px] text-slate-400">{outputName}</span>
