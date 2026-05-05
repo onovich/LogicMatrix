@@ -20,6 +20,7 @@ body {
   background:
     radial-gradient(circle at top, rgba(30, 41, 59, 0.6), transparent 35%),
     linear-gradient(180deg, #020617 0%, #0f172a 100%);
+  overscroll-behavior: none;
 }
 
 * {
@@ -29,6 +30,11 @@ body {
 button,
 input {
   font: inherit;
+}
+
+button,
+.port-dot {
+  -webkit-tap-highlight-color: transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

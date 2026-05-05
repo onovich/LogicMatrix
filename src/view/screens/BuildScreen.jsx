@@ -17,23 +17,31 @@ export default function BuildScreen({
   const containerRef = useRef(null);
   const [drawingLine, setDrawingLine] = useState(null);
 
-  const handleMouseDownBackground = (event) => {
-    if (event.button === 2 || event.button === 1 || (event.button === 0 && event.target === containerRef.current)) {
-      const startX = event.clientX - pan.x;
-      const startY = event.clientY - pan.y;
+  const handlePointerDownBackground = (event) => {
+    const isMousePanTrigger = event.pointerType === 'mouse'
+      ? event.button === 2 || event.button === 1 || (event.button === 0 && event.target === containerRef.current)
+      : event.target === containerRef.current;
 
-      const onMouseMove = (moveEvent) => {
-        setPan({ x: moveEvent.clientX - startX, y: moveEvent.clientY - startY });
-      };
-
-      const onMouseUp = () => {
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-      };
-
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
+    if (!isMousePanTrigger) {
+      return;
     }
+
+    const startX = event.clientX - pan.x;
+    const startY = event.clientY - pan.y;
+
+    const onPointerMove = (moveEvent) => {
+      setPan({ x: moveEvent.clientX - startX, y: moveEvent.clientY - startY });
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
   };
 
   const addNode = (typeKey) => {
@@ -55,8 +63,8 @@ export default function BuildScreen({
     ]);
   };
 
-  const handleNodeMouseDown = (event, nodeId) => {
-    if (event.button !== 0 || event.target.closest('.port-dot') || event.target.closest('input')) {
+  const handleNodePointerDown = (event, nodeId) => {
+    if ((event.pointerType === 'mouse' && event.button !== 0) || event.target.closest('.port-dot') || event.target.closest('input')) {
       return;
     }
 
@@ -66,7 +74,7 @@ export default function BuildScreen({
     const offsetX = event.clientX - node.x;
     const offsetY = event.clientY - node.y;
 
-    const onMouseMove = (moveEvent) => {
+    const onPointerMove = (moveEvent) => {
       setNodes((previous) =>
         previous.map((item) =>
           item.id === nodeId ? { ...item, x: moveEvent.clientX - offsetX, y: moveEvent.clientY - offsetY } : item,
@@ -74,13 +82,15 @@ export default function BuildScreen({
       );
     };
 
-    const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
     };
 
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
   };
 
   const deleteNode = (nodeId) => {
@@ -107,7 +117,7 @@ export default function BuildScreen({
       currentY: startPos.y,
     });
 
-    const onMouseMove = (moveEvent) => {
+    const onPointerMove = (moveEvent) => {
       if (!containerRef.current) {
         return;
       }
@@ -120,9 +130,10 @@ export default function BuildScreen({
       }));
     };
 
-    const onMouseUp = (upEvent) => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+    const onPointerUp = (upEvent) => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
 
       const targetElement = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
       if (targetElement && targetElement.classList.contains('port-dot-input')) {
@@ -150,8 +161,9 @@ export default function BuildScreen({
       setDrawingLine(null);
     };
 
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
   };
 
   const deleteConnection = (connectionId) => {
@@ -159,13 +171,14 @@ export default function BuildScreen({
   };
 
   return (
-    <div className="flex h-full w-full">
+    <div className="relative flex h-full w-full pb-40 md:pb-0">
       <NodePalette unlockedNodes={unlockedNodes} currentPoints={currentPoints} onAddNode={addNode} />
       <div
         className="relative flex-1 overflow-hidden bg-slate-950"
-        onMouseDown={handleMouseDownBackground}
+        onPointerDown={handlePointerDownBackground}
         onContextMenu={(event) => event.preventDefault()}
         ref={containerRef}
+        style={{ touchAction: 'none' }}
       >
         <div
           className="pointer-events-none absolute inset-0 bg-grid-dots"
@@ -231,7 +244,7 @@ export default function BuildScreen({
             return (
               <div
                 key={node.id}
-                onMouseDown={(event) => handleNodeMouseDown(event, node.id)}
+                onPointerDown={(event) => handleNodePointerDown(event, node.id)}
                 className="absolute z-10 flex flex-col rounded-lg border border-slate-700 bg-slate-800 text-slate-200 shadow-2xl transition-shadow hover:shadow-indigo-500/20"
                 style={{ left: node.x, top: node.y, width: NODE_WIDTH }}
               >
@@ -272,7 +285,7 @@ export default function BuildScreen({
                           )
                         }
                         className="w-20 rounded border border-slate-600 bg-slate-900 px-2 py-1 text-center font-mono text-xs text-emerald-400 focus:border-indigo-500 focus:outline-none"
-                        onMouseDown={(event) => event.stopPropagation()}
+                        onPointerDown={(event) => event.stopPropagation()}
                       />
                     </div>
                   )}
@@ -283,7 +296,7 @@ export default function BuildScreen({
                         <span className="mr-1 scale-90 font-mono text-[10px] text-slate-400">{outputName}</span>
                         <div
                           className="port-dot h-3 w-3 cursor-crosshair rounded-full border-2 border-slate-700 bg-indigo-400 transition-colors hover:bg-indigo-300"
-                          onMouseDown={(event) => startConnection(event, node.id, index, true)}
+                          onPointerDown={(event) => startConnection(event, node.id, index, true)}
                         />
                       </div>
                     ))}
