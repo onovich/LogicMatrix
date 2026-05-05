@@ -26,6 +26,10 @@ function getZoomFactor(deltaY) {
   return Math.exp(-deltaY * 0.0015);
 }
 
+function isCanvasGestureTarget(target) {
+  return !target.closest('[data-canvas-node="true"], input, button, .port-dot');
+}
+
 export default function BuildScreen({
   nodes,
   setNodes,
@@ -221,8 +225,8 @@ export default function BuildScreen({
 
   const handlePointerDownBackground = (event) => {
     const isMousePanTrigger = event.pointerType === 'mouse'
-      ? event.button === 2 || event.button === 1 || (event.button === 0 && event.target === containerRef.current)
-      : event.target === containerRef.current;
+      ? (event.button === 2 || event.button === 1 || event.button === 0) && isCanvasGestureTarget(event.target)
+      : isCanvasGestureTarget(event.target);
 
     if (!isMousePanTrigger) {
       return;
@@ -468,6 +472,7 @@ export default function BuildScreen({
               <div
                 key={node.id}
                 onPointerDown={(event) => handleNodePointerDown(event, node.id)}
+                data-canvas-node="true"
                 className="absolute z-10 flex flex-col rounded-lg border border-slate-700 bg-slate-800 text-slate-200 shadow-2xl transition-shadow hover:shadow-indigo-500/20"
                 style={{ left: node.x, top: node.y, width: NODE_WIDTH }}
               >
