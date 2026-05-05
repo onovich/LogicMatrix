@@ -14,7 +14,7 @@ export const NODE_TYPES = {
   ActionHeal: { id: 'ActionHeal', name: '执行: 治疗', type: 'action', inputs: ['Trigger'], outputs: [], cost: 25, color: 'bg-green-600' },
 };
 
-export const INITIAL_UNLOCKED = ['Distance', 'Constant', 'GreaterThan', 'ActionAttack', 'ActionForward'];
+export const INITIAL_UNLOCKED = ['Distance', 'Constant', 'LessThan', 'ActionAttack', 'ActionForward'];
 export const CONNECTION_COST = 5;
 export const NODE_WIDTH = 160;
 export const PORT_OFFSET_Y = 40;
