@@ -1,9 +1,22 @@
 import { Brain, Crosshair, ShieldAlert } from 'lucide-react';
+import { useEffect, useMemo, useRef } from 'react';
 import { ARENA_SIZE } from '../../data/nodeTypes';
 import { useBattleSimulation } from '../../logic/hooks/useBattleSimulation';
 
 export default function BattleScreen({ nodes, connections, level, onEnd }) {
   const { player, enemy, tickCount, logs } = useBattleSimulation({ nodes, connections, level, onEnd });
+  const logContainerRef = useRef(null);
+  const orderedLogs = useMemo(() => logs.slice(), [logs]);
+
+  useEffect(() => {
+    const container = logContainerRef.current;
+
+    if (!container) {
+      return;
+    }
+
+    container.scrollTop = container.scrollHeight;
+  }, [orderedLogs]);
 
   const arena = Array.from({ length: ARENA_SIZE }, (_, index) => {
     const isPlayer = player.pos === index;
@@ -71,11 +84,11 @@ export default function BattleScreen({ nodes, connections, level, onEnd }) {
 
       <div className="relative mt-16 h-48 w-full max-w-2xl overflow-hidden rounded-lg border border-slate-800 bg-slate-950 p-4 shadow-inner">
         <div className="absolute left-4 top-2 text-xs font-bold uppercase text-slate-600">SYSTEM LOG</div>
-        <div className="mt-4 flex flex-col gap-1">
-          {logs.map((log, index) => (
+        <div ref={logContainerRef} className="custom-scrollbar mt-4 flex h-full flex-col gap-1 overflow-y-auto pr-2">
+          {orderedLogs.map((log, index) => (
             <div
               key={`${log}-${index}`}
-              className={`font-mono text-sm transition-all ${index === 0 ? 'text-indigo-300 opacity-100' : 'text-slate-500 opacity-70'}`}
+              className={`font-mono text-sm transition-all ${index === orderedLogs.length - 1 ? 'text-indigo-300 opacity-100' : 'text-slate-500 opacity-70'}`}
             >
               {'>'} {log}
             </div>

@@ -38,7 +38,7 @@ export function stepBattle({ player, enemy, level, evaluatePlayerAction }) {
     nextPlayer.actionLog = '攻击!';
     if (Math.abs(nextPlayer.pos - nextEnemy.pos) <= 1) {
       const damage = 15;
-      nextEnemy.hp -= damage;
+      nextEnemy.hp = Math.max(0, nextEnemy.hp - damage);
       logs.push(`玩家 攻击! 造成 ${damage} 伤害`);
     } else {
       logs.push('玩家 攻击挥空...');
@@ -76,7 +76,7 @@ export function stepBattle({ player, enemy, level, evaluatePlayerAction }) {
     nextEnemy.actionLog = '攻击!';
     if (Math.abs(nextPlayer.pos - nextEnemy.pos) <= 1) {
       const damage = 10 + Math.floor(level * 2);
-      nextPlayer.hp -= damage;
+      nextPlayer.hp = Math.max(0, nextPlayer.hp - damage);
       logs.push(`敌人 攻击! 造成 ${damage} 伤害`);
     } else {
       logs.push('敌人 攻击挥空...');

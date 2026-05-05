@@ -48,9 +48,9 @@ export function evaluateGraph(nodes, connections, battleState) {
       case 'EnemyHP':
         return battleState.enemy.hp;
       case 'GreaterThan':
-        return getInputValue(sourceNode.id, 'A', new Set(visited)) > getInputValue(sourceNode.id, 'B', new Set(visited)) ? 1 : 0;
+        return getInputValue(sourceNode.id, 'A', new Set(visited)) >= getInputValue(sourceNode.id, 'B', new Set(visited)) ? 1 : 0;
       case 'LessThan':
-        return getInputValue(sourceNode.id, 'A', new Set(visited)) < getInputValue(sourceNode.id, 'B', new Set(visited)) ? 1 : 0;
+        return getInputValue(sourceNode.id, 'A', new Set(visited)) <= getInputValue(sourceNode.id, 'B', new Set(visited)) ? 1 : 0;
       case 'Equals':
         return getInputValue(sourceNode.id, 'A', new Set(visited)) === getInputValue(sourceNode.id, 'B', new Set(visited)) ? 1 : 0;
       case 'And':
